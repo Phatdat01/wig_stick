@@ -76,9 +76,10 @@ class FaceParsing_tensor:
                 n_classes = 19
                 FaceParsing.bise_net = BiSeNet(n_classes=n_classes)
                 save_pth = 'pretrained_models/BiSeNet/face_parsing_79999_iter.pth'
-                FaceParsing.bise_net.load_state_dict(torch.load(save_pth))
+                # FaceParsing.bise_net.load_state_dict(torch.load(save_pth))
+                FaceParsing.bise_net.load_state_dict(torch.load(save_pth, map_location=torch.device('cpu')))
                 FaceParsing.bise_net.eval()
-                FaceParsing.bise_net = FaceParsing.bise_net.cuda()
+                FaceParsing.bise_net = FaceParsing.bise_net.cpu()
 
             if img is None:
                 return

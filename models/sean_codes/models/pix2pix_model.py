@@ -127,17 +127,19 @@ class Pix2PixModel(torch.nn.Module):
         if self.use_gpu():
             for param in ['label', 'instance', 'image']:
                 if param in data and data[param] is not None:
-                    data[param] = data[param].cuda(non_blocking=True)
+                    data[param] = data[param].to('cpu', non_blocking=True)  # Ensure CPU usage
+
             if 'obj_dic' in data:
                 for idx in range(19):
                     if data['obj_dic'][str(idx)]['ACE'].device.type == 'cpu':
-                        data['obj_dic'][str(idx)]['ACE'] = data['obj_dic'][str(idx)]['ACE'].cuda(non_blocking=True)
+                        data['obj_dic'][str(idx)]['ACE'] = data['obj_dic'][str(idx)]['ACE'].cpu()
         # create one-hot label map
         label_map = data['label']
         bs, _, h, w = label_map.size()
         nc = self.opt.label_nc + 1 if self.opt.contain_dontcare_label \
             else self.opt.label_nc
-        input_label = self.FloatTensor(bs, nc, h, w).zero_()
+        input_label = torch.FloatTensor(bs, nc, h, w).zero_()
+
         input_semantics = input_label.scatter_(1, label_map, 1.0)
 
         # concatenate instance map if it exists
@@ -286,7 +288,7 @@ def load_average_feature():
 
         for style_code_path in average_category_list:
             input_style_dic[str(i)][style_code_path] = torch.from_numpy(
-                np.load(os.path.join(average_style_code_folder, str(i), style_code_path + '.npy'))).cuda()
+        np.load(os.path.join(average_style_code_folder, str(i), style_code_path + '.npy')))
     return input_style_dic
 
 

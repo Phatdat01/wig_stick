@@ -14,7 +14,8 @@ class fs_encoder_v2(nn.Module):
         super(fs_encoder_v2, self).__init__()  
 
         resnet50 = iresnet50()
-        resnet50.load_state_dict(torch.load(opts.arcface_model_path))
+        resnet50.load_state_dict(torch.load(opts.arcface_model_path, map_location=torch.device('cpu')))
+
 
         # input conv layer
         if video_input:

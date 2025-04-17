@@ -31,10 +31,12 @@ class Alignment(nn.Module):
 
         solver_mask = SolverMask(cfg_mask, device=self.opts.device, local_rank=-1, training=False)
         self.mask_generator = solver_mask.gen
-        self.mask_generator.load_state_dict(torch.load('pretrained_models/ShapeAdaptor/mask_generator.pth'))
+        self.mask_generator.load_state_dict(torch.load('pretrained_models/ShapeAdaptor/mask_generator.pth', map_location=torch.device('cpu')))
+
 
         self.rotate_model = RotateModel()
-        self.rotate_model.load_state_dict(torch.load(self.opts.rotate_checkpoint)['model_state_dict'])
+        self.rotate_model.load_state_dict(torch.load(self.opts.rotate_checkpoint, map_location=torch.device('cpu'))['model_state_dict'])
+
         self.rotate_model.to(self.opts.device).eval()
 
         self.dilate_erosion = DilateErosion(dilate_erosion=self.opts.smooth, device=self.opts.device)

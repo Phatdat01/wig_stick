@@ -285,7 +285,8 @@ class PostProcessModel(nn.Module):
         if not self.args.finetune:
             toggle_grad(self.encoder_face, False)
 
-        self.latent_avg = torch.load('pretrained_models/PostProcess/latent_avg.pt', map_location=torch.device('cuda'))
+        self.latent_avg = torch.load('pretrained_models/PostProcess/latent_avg.pt', map_location=torch.device('cpu'))
+
         self.to_feature = FeatureiResnet([[1024, 2], [768, 2], [512, 2]])
 
         if self.args.use_mod:

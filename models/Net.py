@@ -338,7 +338,8 @@ class FeatureEncoder(nn.Module):
         super(FeatureEncoder, self).__init__()
 
         resnet50 = iresnet50()
-        resnet50.load_state_dict(torch.load(opts.arcface_model_path))
+        resnet50.load_state_dict(torch.load(opts.arcface_model_path, map_location=torch.device('cpu')))
+
 
         # input conv layer
         if video_input:

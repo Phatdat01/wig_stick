@@ -35,7 +35,8 @@ class DilateErosion:
 
     def hair_from_mask(self, mask):
         mask = torch.where(mask == 13, torch.ones_like(mask), torch.zeros_like(mask))
-        mask = F.interpolate(mask, size=(256, 256), mode='nearest')
+        mask = F.interpolate(mask.float(), size=(256, 256), mode='nearest')
+
         dilate, erosion = self.mask(mask)
         return dilate, erosion
 

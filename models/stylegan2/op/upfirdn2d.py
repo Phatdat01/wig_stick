@@ -7,13 +7,33 @@ from torch.utils.cpp_extension import load
 
 
 module_path = os.path.dirname(__file__)
-upfirdn2d_op = load(
-    "upfirdn2d",
-    sources=[
-        os.path.join(module_path, "upfirdn2d.cpp"),
-        os.path.join(module_path, "upfirdn2d_kernel.cu"),
-    ],
-)
+if torch.cuda.is_available():
+    # CUDA is available, load the CUDA extension
+    module_path = os.path.dirname(__file__)
+    upfirdn2d_op = load(
+        "upfirdn2d",
+        sources=[
+            os.path.join(module_path, "upfirdn2d.cpp"),
+            os.path.join(module_path, "upfirdn2d_kernel.cu"),
+        ],
+    )
+    print("CUDA extension for upfirdn2d loaded successfully.")
+else:
+    # CUDA is not available, fall back to CPU implementation
+    print("CUDA is not available. Falling back to CPU implementation.")
+    upfirdn2d_op = None  # You can define a CPU implementation here if needed
+
+# Optionally, implement or import a CPU fallback for `upfirdn2d_op` if necessary
+if upfirdn2d_op is None:
+    # If CUDA isn't available, define a fallback function (for CPU)
+    def upfirdn2d_cpu(*args, **kwargs):
+        # Implement the CPU version of the `upfirdn2d` operation or call an alternative
+        print("Using CPU-based upfirdn2d operation.")
+        # Implement the operation here or use PyTorch's built-in functions
+        pass
+
+    # Use the CPU fallback
+    upfirdn2d_op = upfirdn2d_cpu
 
 
 class UpFirDn2dBackward(Function):

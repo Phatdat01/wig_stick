@@ -42,8 +42,9 @@ class BicubicDownSample(nn.Module):
 
         pad_along_height = max(filter_height - stride, 0)
         pad_along_width = max(filter_width - stride, 0)
-        filters1 = self.k1.type('torch{}.FloatTensor'.format(self.cuda))
-        filters2 = self.k2.type('torch{}.FloatTensor'.format(self.cuda))
+        filters1 = self.k1.type('torch.FloatTensor')  # Always use CPU
+        filters2 = self.k2.type('torch.FloatTensor')  # Always use CPU
+
 
         # compute actual padding values for each side
         pad_top = pad_along_height // 2

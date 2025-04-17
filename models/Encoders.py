@@ -75,7 +75,8 @@ class ClipBlendingModel(nn.Module):
     def __init__(self, clip_model="ViT-B/32"):
         super().__init__()
         self.pixelnorm = PixelNorm()
-        self.clip_model, _ = clip.load(clip_model, device="cuda")
+        self.clip_model, _ = clip.load(clip_model, device="cpu")
+
         self.transform = T.Compose(
             [T.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711))])
         self.face_pool = torch.nn.AdaptiveAvgPool2d((224, 224))
@@ -109,7 +110,8 @@ class PostProcessModel(nn.Module):
         self.encoder_face = FeatureEncoderMult(fs_layers=[9], opts=argparse.Namespace(
             **{'arcface_model_path': "pretrained_models/ArcFace/backbone_ir50.pth"}))
 
-        self.latent_avg = torch.load('pretrained_models/PostProcess/latent_avg.pt', map_location=torch.device('cuda'))
+        self.latent_avg = torch.load('pretrained_models/PostProcess/latent_avg.pt', map_location=torch.device('cpu'))
+
         self.to_feature = FeatureiResnet([[1024, 2], [768, 2], [512, 2]])
 
         self.to_latent_1 = nn.ModuleList([ModulationModule(18, i == 4) for i in range(5)])

@@ -143,7 +143,8 @@ class HairEditor:
 
             for style_code_path in average_category_list:
                 input_style_dic[str(i)][style_code_path] = torch.from_numpy(
-                    np.load(os.path.join(average_style_code_folder, str(i), style_code_path + '.npy'))).cuda()
+        np.load(os.path.join(average_style_code_folder, str(i), style_code_path + '.npy')))
+
         return input_style_dic
 
     def get_code(self, hair_img, hair_parsing):

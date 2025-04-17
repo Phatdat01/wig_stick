@@ -189,15 +189,19 @@ class Trainer(nn.Module):
         # load StyleGAN model
         stylegan_state_dict = torch.load(stylegan_model_path, map_location='cpu')
         self.StyleGAN.load_state_dict(get_keys(stylegan_state_dict, 'decoder'), strict=True)
-        self.StyleGAN.to(self.device)
+        self.StyleGAN.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
         # get StyleGAN average latent in w space and the noise inputs
-        self.dlatent_avg = stylegan_state_dict['latent_avg'].to(self.device)
-        self.noise_inputs = [getattr(self.StyleGAN.noises, f'noise_{i}').to(self.device) for i in range(self.StyleGAN.num_layers)]
+        self.dlatent_avg = stylegan_state_dict['latent_avg'].to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.noise_inputs = [getattr(self.StyleGAN.noises, f'noise_{i}').to(device) for i in range(self.StyleGAN.num_layers)]
+
         # load Arcface weight
-        self.Arcface.load_state_dict(torch.load(self.opts.arcface_model_path))
+        self.Arcface.load_state_dict(torch.load(self.opts.arcface_model_path, map_location=torch.device('cpu')))
+
         self.Arcface.eval()
         # load face parsing net weight
-        self.parsing_net.load_state_dict(torch.load(self.opts.parsing_model_path))
+        self.parsing_net.load_state_dict(torch.load(self.opts.parsing_model_path, map_location=torch.device('cpu')))
+
         self.parsing_net.eval()
         # load lpips net weight
         # self.loss_fn = lpips.LPIPS(net='alex', spatial=False)

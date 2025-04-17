@@ -1,3 +1,4 @@
+import os
 import argparse
 import typing as tp
 from collections import defaultdict
@@ -9,6 +10,8 @@ import torch
 import torchvision.transforms.functional as F
 from PIL import Image
 from torchvision.io import read_image, ImageReadMode
+from torchvision import transforms
+
 
 from models.Alignment import Alignment
 from models.Blending import Blending
@@ -19,9 +22,23 @@ from utils.seed import seed_setter
 from utils.shape_predictor import align_face
 from utils.time import bench_session
 
+# Force no CUDA (Important)
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disable CUDA completely
+
 TImage = tp.TypeVar('TImage', torch.Tensor, Image.Image, np.ndarray)
 TPath = tp.TypeVar('TPath', Path, str)
 TReturn = tp.TypeVar('TReturn', torch.Tensor, tuple[torch.Tensor, ...])
+
+
+def read_image_pillow(file_path, mode='RGB'):
+    try:
+        img = Image.open(file_path)
+        img = img.convert(mode)  # Convert to the desired mode (e.g., 'RGB')
+        return img
+    except Exception as e:
+        print(f"Error loading image: {file_path}")
+        print(str(e))  # Print error message
+        raise e  # Re-raise exception to stop execution
 
 
 class HairFast:
@@ -31,10 +48,11 @@ class HairFast:
 
     def __init__(self, args):
         self.args = args
-        self.net = Net(self.args)
-        self.embed = Embedding(args, net=self.net)
-        self.align = Alignment(args, self.embed.get_e4e_embed, net=self.net)
-        self.blend = Blending(args, net=self.net)
+        self.device = torch.device('cpu')  # Explicitly set device to CPU
+        self.net = Net(self.args).to(self.device)  # Ensure model is on CPU
+        self.embed = Embedding(args, net=self.net).to(self.device)
+        self.align = Alignment(args, self.embed.get_e4e_embed, net=self.net).to(self.device)
+        self.blend = Blending(args, net=self.net).to(self.device)
 
     @seed_setter
     @bench_session
@@ -83,7 +101,9 @@ class HairFast:
             elif isinstance(img, (Path, str)):
                 path_img = img
                 if path_img not in path_to_images:
-                    path_to_images[path_img] = read_image(str(path_img), mode=ImageReadMode.RGB)
+                    path_to_images[path_img] = read_image_pillow(str(path_img), mode='RGB')
+                    transform = transforms.ToTensor()
+                    path_to_images[path_img] = transform(path_to_images[path_img])
                 img = path_to_images[path_img]
             else:
                 raise TypeError(f'Unsupported image format {type(img)}')
@@ -120,7 +140,7 @@ def get_parser():
     parser.add_argument('--n_mlp', type=int, default=8)
 
     # Arguments
-    parser.add_argument('--device', type=str, default='cuda')
+    parser.add_argument('--device', type=str, default='cpu')  # Ensure this is CPU
     parser.add_argument('--batch_size', type=int, default=3, help='batch size for encoding images')
     parser.add_argument('--save_all', action='store_true', help='save and print mode information')
 
