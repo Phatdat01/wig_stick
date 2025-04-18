@@ -157,3 +157,6 @@ test_coef/*.png
 **/*.bz2
 !/models/sean_codes/styles_test/**/*.npy
 /logs/
+
+input
+pretrained_models
