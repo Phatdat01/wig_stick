@@ -85,7 +85,7 @@ def wig_stick():
 
         # Process the images here (e.g., hair swapping)
         # final_tensor = hair_fast.swap(face_image, shape_image, color_image)
-        final_tensor,_,_,_ = hair_fast.swap(face_image, shape_image, color_image, align=True)
+        final_tensor = hair_fast.swap(face_image, shape_image, color_image, align=True)
 
         # Convert tensor to PIL Image
         final_image = final_tensor.squeeze(0).permute(1, 2, 0).cpu().detach().numpy()
@@ -128,7 +128,7 @@ def get_wig():
         color_image = shape_image  # Use shape as color too
 
         # Call your hair swap function
-        final_tensor, _, _, _ = hair_fast.swap(face_image, shape_image, color_image, align=True)
+        final_tensor = hair_fast.swap(face_image, shape_image, color_image)
 
         # Convert tensor to PIL
         final_image = final_tensor.squeeze(0).permute(1, 2, 0).cpu().detach().numpy()
