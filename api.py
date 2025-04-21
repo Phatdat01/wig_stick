@@ -1,12 +1,13 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, render_template
 
 import io
-import numpy as np
+import os
+import torch
 import subprocess
+import numpy as np
 from PIL import Image
 from pathlib import Path
 from tqdm.auto import tqdm
-import torch
 from torchvision.utils import save_image
 from werkzeug.utils import secure_filename
 
@@ -102,6 +103,54 @@ def wig_stick():
     except Exception as e:
         logging.error(f"Error: {str(e)}")
         return jsonify({"message": "Error in hair swapping", "error": str(e)}), 500
+    
+@app.route('/get_wig', methods=['POST'])
+def get_wig():
+    # Only check for 'face' since shape is loaded from path
+    if 'face' not in request.files:
+        return jsonify({"message": "Missing required file: face"}), 400
+
+    face_file = request.files['face']
+    choose_file = request.form.get('shape', '1')
+    files = os.listdir("static/wig")
+    if face_file.filename == '' or f"{choose_file}.png" not in files:
+        return jsonify({"message": "No selected face file"}), 400
+
+    try:
+        # Open input images
+        face_image = Image.open(io.BytesIO(face_file.read()))
+        shape_image = Image.open(f"static/wig/{choose_file}.png")
+
+        # Resize images
+        target_size = (1024, 1024)
+        face_image = resize_image(ensure_rgb(face_image), target_size)
+        shape_image = resize_image(ensure_rgb(shape_image), target_size)
+        color_image = shape_image  # Use shape as color too
+
+        # Call your hair swap function
+        final_tensor, _, _, _ = hair_fast.swap(face_image, shape_image, color_image, align=True)
+
+        # Convert tensor to PIL
+        final_image = final_tensor.squeeze(0).permute(1, 2, 0).cpu().detach().numpy()
+        final_image = (final_image * 255).astype(np.uint8)
+        final_pil_image = Image.fromarray(final_image)
+
+        # Prepare response
+        img_byte_arr = io.BytesIO()
+        final_pil_image.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+
+        return Response(img_byte_arr, mimetype='image/png')
+
+    except Exception as e:
+        logging.error(f"Error: {str(e)}")
+        return jsonify({"message": "Error in hair swapping", "error": str(e)}), 500
+    
+@app.route('/web')
+def index():
+    wig_dir = 'static/wig'
+    files = [os.path.splitext(f)[0] for f in os.listdir(wig_dir) if f.lower().endswith(('.png'))]
+    return render_template('index.html', wig_files=files)
 
 
 if __name__ == '__main__':
