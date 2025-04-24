@@ -152,6 +152,11 @@ def index():
     files = [os.path.splitext(f)[0] for f in os.listdir(wig_dir) if f.lower().endswith(('.png'))]
     return render_template('index.html', wig_files=files)
 
+@app.route('/camera')
+def camera():
+    wig_dir = 'static/wig'
+    files = [os.path.splitext(f)[0] for f in os.listdir(wig_dir) if f.lower().endswith(('.png'))]
+    return render_template('camera.html', wig_files=files)
 
 if __name__ == '__main__':
     app.run(debug=True)

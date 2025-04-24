@@ -406,3 +406,21 @@ body {
 .wig-thumb.selected {
     border-color: #007bff;
 }
+
+#video {
+    width: 640px;
+    height: 640px;
+    object-fit: cover;
+    background: black;
+  }
+
+.image-btn,.capture-btn{
+    display: none;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+}
+
+.capture-btn{
+    display: flex;
+}
