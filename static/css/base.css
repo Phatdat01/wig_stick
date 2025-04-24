@@ -383,11 +383,12 @@ body {
 
 #img-content {
     display: flex;
+    justify-content: center;
     height: 400px;
     padding: 20px;
 }
 
-#img-content > img{
+#img-content > img, #img-content > canvas{
     padding-inline: 10px;
 }
 

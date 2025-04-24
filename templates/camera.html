@@ -41,9 +41,12 @@
                 
                     <button id="wig-next" class="btn btn-secondary">›</button>
                 </div>
-                <canvas id="canvas" width="640" height="640" style="border:1px solid #ccc;"></canvas><br>
+                <div id="img-content" name="img-content">
+                  <canvas id="canvas" width="400px" height="400px" style="border:1px solid #ccc;"></canvas><br>
+                  <img id="resultImage" src="#" style="display: none; max-width: 400px;">
+                </div>
                 <button id="upload" class="btn btn-success btn-recreate">⬆️ Submit</button>
-                <img id="resultImage" src="#" style="display: none; max-width: 400px;">
+                <div id="loading" style="display: none; font-weight: bold;">Loading...</div>
               </div>
             </div>
           </div>
