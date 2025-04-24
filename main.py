@@ -2,12 +2,34 @@ import argparse
 import os
 import sys
 from pathlib import Path
-
+from PIL import Image
+import torchvision.transforms as transforms
 from torchvision.utils import save_image
 from tqdm.auto import tqdm
 
 from hair_swap import HairFast, get_parser
 
+# === Image preprocessing functions ===
+
+def resize_image(image, target_size=(1024, 1024)):
+    """Resize the image to the target size (e.g., 1024x1024)."""
+    image = image.resize(target_size, Image.LANCZOS)
+    return image
+
+def ensure_rgb(image):
+    """Ensure the image has 3 channels (RGB)."""
+    if image.mode != 'RGB':
+        image = image.convert('RGB')
+    return image
+
+def load_and_process_image(path):
+    """Open image as PIL, ensure RGB, resize."""
+    image = Image.open(path)
+    image = ensure_rgb(image)
+    image = resize_image(image)
+    return image
+
+# === Main process ===
 
 def main(model_args, args):
     hair_fast = HairFast(model_args)
@@ -40,9 +62,22 @@ def main(model_args, args):
             os.makedirs(args.result_path.parent, exist_ok=True)
             output_image_path = args.result_path
 
-        final_image = hair_fast.swap(face_path, shape_path, color_path, benchmark=args.benchmark, exp_name=exp_name)
+        # Load and process images
+        face_image = load_and_process_image(face_path)
+        shape_image = load_and_process_image(shape_path)
+        color_image = load_and_process_image(color_path)
+
+        # Run the swap
+        # final_image = hair_fast.swap(
+        #     face_image, shape_image, color_image,
+        #     benchmark=args.benchmark,
+        #     exp_name=exp_name
+        # )
+        final_image,_,_,_ = hair_fast.swap(face_image, shape_image, color_image, align=True)
+
         save_image(final_image, output_image_path)
 
+# === Entry point ===
 
 if __name__ == "__main__":
     model_parser = get_parser()
@@ -52,7 +87,7 @@ if __name__ == "__main__":
 
     # Arguments for a set of experiments
     parser.add_argument('--file_path', type=Path, default=None,
-                        help='File with experiments with the format "face_path.png shape_path.png color_path.png"')
+                        help='File with experiments in format: "face shape color" per line')
     parser.add_argument('--output_dir', type=Path, default=Path('output'), help='The directory for final results')
 
     # Arguments for single experiment

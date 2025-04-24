@@ -167,3 +167,12 @@ If you use this code for your research, please cite our paper:
   year={2024}
 }
 ```
+
+
+## Run public:
+```
+$env:FLASK_APP = "api.py"
+```
+```
+flask run --host=192.168.1.36 --port=5000
+```

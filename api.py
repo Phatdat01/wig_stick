@@ -1,20 +1,34 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, render_template
 
 import io
-import numpy as np
+import os
+import torch
 import subprocess
+import numpy as np
 from PIL import Image
 from pathlib import Path
 from tqdm.auto import tqdm
-import torch
 from torchvision.utils import save_image
 from werkzeug.utils import secure_filename
 
 from hair_swap import HairFast, get_parser
 
-model_parser = get_parser()
-model_args, _ = model_parser.parse_known_args()
-hair_fast = HairFast(model_args)
+model_args = get_parser()
+hair_fast = HairFast(model_args.parse_args([]))
+# model_parser = get_parser()
+# model_args, _ = model_parser.parse_known_args()
+# hair_fast = HairFast(model_args)
+
+def resize_image(image, target_size=(1024, 1024)):
+    """Resize the image to the target size (e.g., 1024x1024)."""
+    image = image.resize(target_size, Image.LANCZOS)
+    return image
+
+def ensure_rgb(image):
+    """Ensure the image has 3 channels (RGB). If the image has an alpha channel (RGBA), it will be converted to RGB."""
+    if image.mode == 'RGBA':  # Check if the image has an alpha channel
+        image = image.convert('RGB')  # Remove alpha channel and convert to RGB
+    return image
 
 app = Flask(__name__)
 
@@ -34,7 +48,7 @@ def wig_stick():
     shape_file = request.files['shape']
 
     # If color is part of the input, handle it
-    color_file = request.files.get('color')  # Optional, if you want to handle it
+    color_file = shape_file  # Using shape as color if color is not provided
 
     # Check if files are valid (you can add other checks here like file extensions)
     if face_file.filename == '' or shape_file.filename == '':
@@ -57,23 +71,25 @@ def wig_stick():
         shape_image = Image.open(io.BytesIO(shape_file.read()))
         color_image = shape_image
 
-        # Debugging: Check if the images are opened successfully
-        logging.info(f"Face image size: {face_image.size}, Shape image size: {shape_image.size}")
+        # Resize all images to a consistent size (1024x1024)
+        target_size = (1024, 1024)  # Resize to a fixed size like 1024x1024
+        face_image = resize_image(ensure_rgb(face_image), target_size)
+        shape_image = resize_image(ensure_rgb(shape_image), target_size)
         if color_file:
-            logging.info(f"Color image size: {color_image.size}")
+            color_image = resize_image(ensure_rgb(color_image), target_size)
+
+        # Log the resized image dimensions
+        logging.info(f"Resized Face image size: {face_image.size}, Shape image size: {shape_image.size}")
+        if color_file:
+            logging.info(f"Resized Color image size: {color_image.size}")
 
         # Process the images here (e.g., hair swapping)
-        final_tensor = hair_fast.swap(face_image, shape_image, color_image)
+        # final_tensor = hair_fast.swap(face_image, shape_image, color_image)
+        final_tensor = hair_fast.swap(face_image, shape_image, color_image, align=True)
 
-        # Convert the tensor to a PIL Image
-        # Assuming the output tensor is in the format [C, H, W] (channels, height, width)
-        final_image = final_tensor.squeeze(0)  # Remove batch dimension (if any)
-        final_image = final_image.permute(1, 2, 0).cpu().detach().numpy()  # Convert tensor to numpy (H, W, C)
-
-        # If the image has been processed in range [0, 1] or [0, 255], you may need to scale it:
+        # Convert tensor to PIL Image
+        final_image = final_tensor.squeeze(0).permute(1, 2, 0).cpu().detach().numpy()
         final_image = (final_image * 255).astype(np.uint8)
-
-        # Convert to PIL Image
         final_pil_image = Image.fromarray(final_image)
 
         # Convert the output image to a byte stream
@@ -87,7 +103,60 @@ def wig_stick():
     except Exception as e:
         logging.error(f"Error: {str(e)}")
         return jsonify({"message": "Error in hair swapping", "error": str(e)}), 500
+    
+@app.route('/get_wig', methods=['POST'])
+def get_wig():
+    # Only check for 'face' since shape is loaded from path
+    if 'face' not in request.files:
+        return jsonify({"message": "Missing required file: face"}), 400
 
+    face_file = request.files['face']
+    choose_file = request.form.get('shape', '1')
+    files = os.listdir("static/wig")
+    if face_file.filename == '' or f"{choose_file}.png" not in files:
+        return jsonify({"message": "No selected face file"}), 400
+
+    try:
+        # Open input images
+        face_image = Image.open(io.BytesIO(face_file.read()))
+        shape_image = Image.open(f"static/wig/{choose_file}.png")
+
+        # Resize images
+        target_size = (1024, 1024)
+        face_image = resize_image(ensure_rgb(face_image), target_size)
+        shape_image = resize_image(ensure_rgb(shape_image), target_size)
+        color_image = shape_image  # Use shape as color too
+
+        # Call your hair swap function
+        final_tensor = hair_fast.swap(face_image, shape_image, color_image, align=True)
+
+        # Convert tensor to PIL
+        final_image = final_tensor.squeeze(0).permute(1, 2, 0).cpu().detach().numpy()
+        final_image = (final_image * 255).astype(np.uint8)
+        final_pil_image = Image.fromarray(final_image)
+
+        # Prepare response
+        img_byte_arr = io.BytesIO()
+        final_pil_image.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+
+        return Response(img_byte_arr, mimetype='image/png')
+
+    except Exception as e:
+        logging.error(f"Error: {str(e)}")
+        return jsonify({"message": "Error in hair swapping", "error": str(e)}), 500
+    
+@app.route('/web')
+def index():
+    wig_dir = 'static/wig'
+    files = [os.path.splitext(f)[0] for f in os.listdir(wig_dir) if f.lower().endswith(('.png'))]
+    return render_template('index.html', wig_files=files)
+
+@app.route('/camera')
+def camera():
+    wig_dir = 'static/wig'
+    files = [os.path.splitext(f)[0] for f in os.listdir(wig_dir) if f.lower().endswith(('.png'))]
+    return render_template('camera.html', wig_files=files)
 
 if __name__ == '__main__':
     app.run(debug=True)
