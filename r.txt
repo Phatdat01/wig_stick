@@ -1,0 +1,18 @@
+addict==2.4.0 
+beautifulsoup4==4.13.4
+git+https://github.com/openai/CLIP.git 
+dill==0.4.0 
+dlib==19.24.6
+face-alignment==1.4.1 
+Flask==3.1.0 gdown==5.2.0 
+Jinja2==3.1.6
+matplotlib==3.10.1 
+numpy==2.2.4 
+opencv-python==4.11.0.86
+pillow==11.2.1 
+PyYAML==6.0.2 
+requests==2.32.3 
+scipy==1.15.2
+torch==2.6.0 
+torchvision==0.21.0 
+tqdm==4.67.1
