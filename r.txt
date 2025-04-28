@@ -4,7 +4,8 @@ git+https://github.com/openai/CLIP.git
 dill==0.4.0 
 dlib==19.24.6
 face-alignment==1.4.1 
-Flask==3.1.0 gdown==5.2.0 
+Flask==3.1.0 
+gdown==5.2.0 
 Jinja2==3.1.6
 matplotlib==3.10.1 
 numpy==2.2.4 
