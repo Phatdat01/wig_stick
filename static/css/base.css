@@ -388,12 +388,6 @@ body {
     padding: 20px;
 }
 
-@media (max-width: 768px) {
-    #img-content {
-        flex-direction: column-reverse; /* for smaller screens like phones */
-    }
-}
-
 #img-content > img, #img-content > canvas{
     padding-inline: 10px;
 }
@@ -449,11 +443,28 @@ body {
 }
 
 img.content-choose__img {
-    width: 50%;
+    width: 30%;
 }
 
 span.content-choose__des {
     font-size: 40px;
     color: #fff;
     padding-left: 10px;
+}
+
+@media (max-width: 768px) {
+    #img-content {
+        flex-direction: column-reverse; /* for smaller screens like phones */
+    }
+
+    img.content-choose__img {
+        width: 100%; /* for smaller screens like phones */
+    }
+    .content-choose{
+        width: 100%;
+    }
+    span.content-choose__des{
+        display: flex;
+        justify-content: center;
+    }
 }
