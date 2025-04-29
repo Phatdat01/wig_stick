@@ -23,52 +23,16 @@
     <div class="container">
         <div class="card border-0 shadow my-5">
             <div class="card-body">
-                {% if msg %}
-                <div class="result_title"><b>Lỗi:</b></div>
-                <span class="result_id">{{ msg }}</span>
-                <hr>
-                {% endif %}
-
-                <form id="wigForm" enctype="multipart/form-data">
-                    <div class="container text-center mb-1">
-                        <div class="row">
-                            <div class="col-md-12">
-                                <h4><a href="#" target="_blank"><b style="text-transform: uppercase">
-                                    Shair Trying
-                                </b></a></h4>
-                            </div>
-                        </div>
-                    </div>
-                    <h5 style="color: red;">Needing square image</h5>
-                    <div class="position-relative" style="width: 100%; max-width: 600px; margin: auto;">
-                        <button id="wig-prev" class="btn btn-secondary position-absolute" style="left: -25px;top: 35%;z-index: 1;">‹</button>
-                    
-                        <div id="wig-container" style="overflow: hidden;">
-                            <div id="wig-selection" class="d-flex flex-nowrap mb-3" style="transition: transform 0.3s ease;">
-                                {% for file in wig_files %}
-                                    {% set border_color = '#007bff' if file|string == '1' else 'transparent' %}
-                                    <img src="{{ url_for('static', filename='wig/' + file + '.png') }}"
-                                        data-value="{{ file }}"
-                                        class="wig-thumb m-2 {% if file|string == '1' %}selected{% endif %}">
-                                {% endfor %}
-                            </div>
-                        </div>
-                    
-                        <button id="wig-next" class="btn btn-secondary position-absolute" style="right: -35px; top: 35%; z-index: 1;">›</button>
-                    </div>
-
-                    <input type="hidden" name="shape" id="wig">
-                    
-                    <input type="file" name="face" id="face" accept="image/*" required><br><br>
-                    <div id="img-content" name="img-content">
-                        <img id="facePreview" src="#" alt="Face Preview" style="display: none; max-width: 400px;"><br><br>
-                        <img id="resultImage" src="#" style="display: none; max-width: 400px;">
-                    </div>
-                    <div class="action-btn">
-                        <button class="btn btn-success btn-recreate" type="submit">⬆️ Submit</button>
-                    </div>
-                </form>
-                <div id="loading" style="display: none; font-weight: bold;">Loading...</div>
+                <div class="content">
+                    <a class="content-choose" href="/web">
+                        <img src="{{ url_for('static', filename='uploads/image.jpg') }}" alt="image" class="content-choose__img">
+                        <span class="content-choose__des">Upload image</span>
+                    </a>
+                    <a class="content-choose"  href="/camera">
+                        <img src="{{ url_for('static', filename='uploads/camera.jpg') }}" alt="camera" class="content-choose__img">
+                        <span class="content-choose__des">Try Camera</span>
+                    </a>
+                </div>
             </div>
 
         </div>
