@@ -2,14 +2,9 @@ from flask import Flask, request, jsonify, Response, render_template
 
 import io
 import os
-import torch
-import subprocess
+import logging
 import numpy as np
 from PIL import Image
-from pathlib import Path
-from tqdm.auto import tqdm
-from torchvision.utils import save_image
-from werkzeug.utils import secure_filename
 
 from hair_swap import HairFast, get_parser
 
@@ -32,10 +27,9 @@ def ensure_rgb(image):
 
 app = Flask(__name__)
 
-@app.route('/',  methods=['POST','GET'])
-def hello_world():
-    return 'Hello, World!'
-import logging
+@app.route('/', methods=['GET'])
+def index():
+    return render_template('index.html')
 
 @app.route('/wig_stick', methods=['POST'])
 def wig_stick():
@@ -146,19 +140,19 @@ def get_wig():
         logging.error(f"Error: {str(e)}")
         return jsonify({"message": "Error in hair swapping", "error": str(e)}), 500
     
-@app.route('/web')
-def index():
+@app.route('/web', methods=['GET'])
+def web():
     wig_dir = 'static/wig'
     files = [os.path.splitext(f)[0] for f in os.listdir(wig_dir) if f.lower().endswith(('.png'))]
-    return render_template('index.html', wig_files=files)
+    return render_template('web.html', wig_files=files)
 
-@app.route('/camera')
+@app.route('/camera', methods=['GET'])
 def camera():
     wig_dir = 'static/wig'
     files = [os.path.splitext(f)[0] for f in os.listdir(wig_dir) if f.lower().endswith(('.png'))]
     return render_template('camera.html', wig_files=files)
 
-@app.route('/get_wig_list')
+@app.route('/get_wig_list', methods=['GET'])
 def get_wig_list():
     wig_dir = 'static/wig'
     domain = request.host_url.rstrip('/')

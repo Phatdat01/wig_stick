@@ -388,6 +388,12 @@ body {
     padding: 20px;
 }
 
+@media (max-width: 768px) {
+    #img-content {
+        flex-direction: column-reverse; /* for smaller screens like phones */
+    }
+}
+
 #img-content > img, #img-content > canvas{
     padding-inline: 10px;
 }
@@ -424,4 +430,30 @@ body {
 
 .capture-btn{
     display: flex;
+}
+
+.content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.content-choose {
+    padding: 5px 15px;
+    margin: 20px 0;
+    width: 65%;
+    background: #ff3e3e;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+img.content-choose__img {
+    width: 50%;
+}
+
+span.content-choose__des {
+    font-size: 40px;
+    color: #fff;
+    padding-left: 10px;
 }
