@@ -106,6 +106,8 @@ def get_wig():
 
     face_file = request.files['face']
     choose_file = request.form.get('shape', '1')
+    align = request.form.get('align', '1')
+    align = align=='1'
     files = os.listdir("static/wig")
     if face_file.filename == '' or f"{choose_file}.png" not in files:
         return jsonify({"message": "No selected face file"}), 400
@@ -122,7 +124,7 @@ def get_wig():
         color_image = shape_image  # Use shape as color too
 
         # Call your hair swap function
-        final_tensor = hair_fast.swap(face_image, shape_image, color_image, align=True)
+        final_tensor = hair_fast.swap(face_image, shape_image, color_image, align=align)
 
         # Convert tensor to PIL
         final_image = final_tensor.squeeze(0).permute(1, 2, 0).cpu().detach().numpy()
@@ -145,6 +147,12 @@ def web():
     wig_dir = 'static/wig'
     files = [os.path.splitext(f)[0] for f in os.listdir(wig_dir) if f.lower().endswith(('.png'))]
     return render_template('web.html', wig_files=files)
+
+@app.route('/temp', methods=['GET'])
+def temp():
+    wig_dir = 'static/wig'
+    files = [os.path.splitext(f)[0] for f in os.listdir(wig_dir) if f.lower().endswith(('.png'))]
+    return render_template('temp.html', wig_files=files)
 
 @app.route('/camera', methods=['GET'])
 def camera():
