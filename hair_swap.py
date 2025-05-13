@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torchvision.transforms.functional as F
 from PIL import Image
+from torchvision import transforms
 from torchvision.io import read_image, ImageReadMode
 
 from models.Alignment import Alignment
@@ -23,7 +24,17 @@ TImage = tp.TypeVar('TImage', torch.Tensor, Image.Image, np.ndarray)
 TPath = tp.TypeVar('TPath', Path, str)
 TReturn = tp.TypeVar('TReturn', torch.Tensor, tuple[torch.Tensor, ...])
 
-
+def read_image_pillow(file_path, mode='RGB'):
+    try:
+        file_path=file_path.replace('\\','/')
+        img = Image.open(file_path)
+        img = img.convert(mode)  # Convert to the desired mode (e.g., 'RGB')
+        return img
+    except Exception as e:
+        print(f"Error loading image: {file_path}")
+        print(str(e))  # Print error message
+        raise e  # Re-raise exception to stop execution
+    
 class HairFast:
     """
     HairFast implementation with hairstyle transfer interface
@@ -83,7 +94,9 @@ class HairFast:
             elif isinstance(img, (Path, str)):
                 path_img = img
                 if path_img not in path_to_images:
-                    path_to_images[path_img] = read_image(str(path_img), mode=ImageReadMode.RGB)
+                    path_to_images[path_img] = read_image_pillow(str(path_img), mode='RGB')
+                    transform = transforms.ToTensor()
+                    path_to_images[path_img] = transform(path_to_images[path_img])
                 img = path_to_images[path_img]
             else:
                 raise TypeError(f'Unsupported image format {type(img)}')

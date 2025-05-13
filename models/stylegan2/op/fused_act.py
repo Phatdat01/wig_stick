@@ -13,6 +13,7 @@ fused = load(
         os.path.join(module_path, "fused_bias_act.cpp"),
         os.path.join(module_path, "fused_bias_act_kernel.cu"),
     ],
+    extra_cuda_cflags=['-allow-unsupported-compiler']
 )
 
 
