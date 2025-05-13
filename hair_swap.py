@@ -109,8 +109,8 @@ class HairFast:
 
         final_image = self.__swap_from_tensors(*images, seed=seed, benchmark=benchmark, exp_name=exp_name, **kwargs)
 
-        if align:
-            return final_image, *images
+        # if align:
+        #     return final_image, *images
         return final_image
 
     @wraps(swap)
