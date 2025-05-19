@@ -11,4 +11,5 @@ PyYAML
 face-alignment
 matplotlib
 pillow==11.2.1
+flask
 # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
