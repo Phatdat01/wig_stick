@@ -70,7 +70,7 @@ class Net(nn.Module):
         if not os.path.isfile(PCA_path):
             self.build_PCA_model(PCA_path)
 
-        PCA_model = np.load(PCA_path)
+        PCA_model = np.load(PCA_path, allow_pickle=True)
 
         self.X_mean = torch.from_numpy(PCA_model['X_mean']).float().to(device)
         self.X_comp = torch.from_numpy(PCA_model['X_comp']).float().to(device)
