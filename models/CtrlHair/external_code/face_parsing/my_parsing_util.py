@@ -42,7 +42,8 @@ class FaceParsing:
                 FaceParsing.bise_net = BiSeNet(n_classes=n_classes)
                 # FaceParsing.bise_net.cuda()
                 save_pth = 'models/CtrlHair/external_model_params/face_parsing_79999_iter.pth'
-                FaceParsing.bise_net.load_state_dict(torch.load(save_pth))
+                FaceParsing.bise_net.load_state_dict(torch.load(save_pth, weights_only=False))
+
                 FaceParsing.bise_net.eval()
             out = FaceParsing.bise_net(img)[0]
             parsing = out.squeeze(0).cpu().numpy().argmax(0)
