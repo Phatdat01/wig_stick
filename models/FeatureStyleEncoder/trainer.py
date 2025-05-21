@@ -187,7 +187,8 @@ class Trainer(nn.Module):
 
     def initialize(self, stylegan_model_path, arcface_model_path, parsing_model_path):
         # load StyleGAN model
-        stylegan_state_dict = torch.load(stylegan_model_path, map_location='cpu')
+        stylegan_state_dict = torch.load(stylegan_model_path, map_location='cpu', weights_only=False)
+        
         self.StyleGAN.load_state_dict(get_keys(stylegan_state_dict, 'decoder'), strict=True)
         self.StyleGAN.to(self.device)
         # get StyleGAN average latent in w space and the noise inputs

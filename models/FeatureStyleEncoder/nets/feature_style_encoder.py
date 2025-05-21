@@ -14,6 +14,7 @@ class fs_encoder_v2(nn.Module):
         super(fs_encoder_v2, self).__init__()  
 
         resnet50 = iresnet50()
+        print("Loading arcface model from:", opts.arcface_model_path)
         resnet50.load_state_dict(torch.load(opts.arcface_model_path, weights_only=False))
 
         # input conv layer
