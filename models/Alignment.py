@@ -20,6 +20,7 @@ class Alignment(nn.Module):
     def __init__(self, opts, latent_encoder=None, net=None):
         super().__init__()
         self.opts = opts
+        self.opts.device = 'cpu'
         self.latent_encoder = latent_encoder
         if not net:
             self.net = Net(self.opts)
@@ -37,7 +38,6 @@ class Alignment(nn.Module):
 
         self.rotate_model = RotateModel()
         self.rotate_model.load_state_dict(torch.load(self.opts.rotate_checkpoint, map_location='cpu')['model_state_dict'])
-
         self.rotate_model.to(self.opts.device).eval()
 
         self.dilate_erosion = DilateErosion(dilate_erosion=self.opts.smooth, device=self.opts.device)
