@@ -9,7 +9,6 @@ import torch
 import torchvision.transforms.functional as F
 from PIL import Image
 from torchvision import transforms
-from torchvision.io import read_image, ImageReadMode
 
 from models.Alignment import Alignment
 from models.Blending import Blending
@@ -34,7 +33,7 @@ def read_image_pillow(file_path, mode='RGB'):
         print(f"Error loading image: {file_path}")
         print(str(e))  # Print error message
         raise e  # Re-raise exception to stop execution
-    
+
 class HairFast:
     """
     HairFast implementation with hairstyle transfer interface
@@ -44,7 +43,15 @@ class HairFast:
         self.args = args
         self.net = Net(self.args)
         self.embed = Embedding(args, net=self.net)
-        self.align = Alignment(args, self.embed.get_e4e_embed, net=self.net)
+        
+        # Wrap get_e4e_embed to reduce VRAM usage by disabling gradients and using float16
+        def custom_get_e4e_embed(image: torch.Tensor, **kwargs):
+            with torch.no_grad():
+                # Uncomment next line to enable fp16 (beware of potential accuracy issues)
+                # image = image.to(dtype=torch.float16)
+                return self.embed.get_e4e_embed(image, **kwargs)
+
+        self.align = Alignment(args, custom_get_e4e_embed, net=self.net)
         self.blend = Blending(args, net=self.net)
 
     @seed_setter
