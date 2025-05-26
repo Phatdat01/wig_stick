@@ -36,7 +36,8 @@ class Alignment(nn.Module):
         )
 
         self.rotate_model = RotateModel()
-        self.rotate_model.load_state_dict(torch.load(self.opts.rotate_checkpoint)['model_state_dict'])
+        self.rotate_model.load_state_dict(torch.load(self.opts.rotate_checkpoint, map_location='cpu')['model_state_dict'])
+
         self.rotate_model.to(self.opts.device).eval()
 
         self.dilate_erosion = DilateErosion(dilate_erosion=self.opts.smooth, device=self.opts.device)
