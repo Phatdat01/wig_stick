@@ -31,7 +31,9 @@ class Alignment(nn.Module):
 
         solver_mask = SolverMask(cfg_mask, device=self.opts.device, local_rank=-1, training=False)
         self.mask_generator = solver_mask.gen
-        self.mask_generator.load_state_dict(torch.load('pretrained_models/ShapeAdaptor/mask_generator.pth'))
+        self.mask_generator.load_state_dict(
+            torch.load('pretrained_models/ShapeAdaptor/mask_generator.pth', map_location='cpu')
+        )
 
         self.rotate_model = RotateModel()
         self.rotate_model.load_state_dict(torch.load(self.opts.rotate_checkpoint)['model_state_dict'])
