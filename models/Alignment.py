@@ -26,8 +26,13 @@ class Alignment(nn.Module):
         self.mask_generator = solver_mask.gen
         self.mask_generator.load_state_dict(torch.load('pretrained_models/ShapeAdaptor/mask_generator.pth'))
 
+        # Clear CUDA cache before loading to reduce OOM risk
+        torch.cuda.empty_cache()
+
+        # Load rotate_model checkpoint on CPU first to avoid CUDA OOM
+        checkpoint = torch.load(self.opts.rotate_checkpoint, map_location='cpu')
         self.rotate_model = RotateModel()
-        self.rotate_model.load_state_dict(torch.load(self.opts.rotate_checkpoint)['model_state_dict'])
+        self.rotate_model.load_state_dict(checkpoint['model_state_dict'])
         self.rotate_model.to(self.opts.device).eval()
 
         self.dilate_erosion = DilateErosion(dilate_erosion=self.opts.smooth, device=self.opts.device)
