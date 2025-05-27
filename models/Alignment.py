@@ -19,18 +19,15 @@ class Alignment(nn.Module):
         self.latent_encoder = latent_encoder
         self.net = net if net else Net(self.opts)
 
-        # Load pix2pix model to device AFTER clearing cache
         torch.cuda.empty_cache()
         self.sean_model = Pix2PixModel(SEAN_OPT).to(opts.device)
         self.sean_model.eval()
 
-        # Load SolverMask and model weights carefully
-        solver_mask = SolverMask(cfg_mask, device='cpu', local_rank=-1, training=False)  # Init on CPU
+        solver_mask = SolverMask(cfg_mask, device='cpu', local_rank=-1, training=False)
         solver_mask.gen.load_state_dict(torch.load('pretrained_models/ShapeAdaptor/mask_generator.pth', map_location='cpu'))
-        self.mask_generator = solver_mask.gen.to(opts.device)  # Move to GPU only after loading weights
+        self.mask_generator = solver_mask.gen.to(opts.device)
         torch.cuda.empty_cache()
 
-        # Load RotateModel checkpoint on CPU and then to device
         checkpoint = torch.load(self.opts.rotate_checkpoint, map_location='cpu')
         self.rotate_model = RotateModel()
         self.rotate_model.load_state_dict(checkpoint['model_state_dict'])
@@ -42,8 +39,6 @@ class Alignment(nn.Module):
 
     def shape_module(self, im_name1, im_name2, name_to_embed, only_target=True, **kwargs):
         device = self.opts.device
-
-        # Move tensors to device just-in-time to save VRAM
         img1_in = name_to_embed[im_name1]['image_256'].to(device)
         img2_in = name_to_embed[im_name2]['image_256'].to(device)
         latent_W_1 = name_to_embed[im_name1]["W"].to(device)
@@ -51,13 +46,12 @@ class Alignment(nn.Module):
         inp_mask1 = name_to_embed[im_name1]['mask'].to(device)
         inp_mask2 = name_to_embed[im_name2]['mask'].to(device)
 
-        with torch.no_grad():  # use no_grad to reduce memory overhead
+        with torch.no_grad():
             with torch.cuda.amp.autocast():
                 if img1_in is not img2_in:
                     rotate_to = self.rotate_model(latent_W_2[:, :6], latent_W_1[:, :6])
                     rotate_to = torch.cat((rotate_to, latent_W_2[:, 6:]), dim=1)
                     I_rot, _ = self.net.generator([rotate_to], input_is_latent=True, return_latents=False)
-
                     I_rot_to_seg = ((I_rot + 1) / 2).clamp(0, 1)
                     I_rot_to_seg = self.to_bisenet(I_rot_to_seg)
                     rot_mask = get_segmentation(I_rot_to_seg)
@@ -74,7 +68,6 @@ class Alignment(nn.Module):
 
                 hair_mask_target = (target_mask == 13).float().to(device)
 
-        # Explicitly delete large tensors after use
         del latent_W_1, latent_W_2, inp_mask1, inp_mask2
         torch.cuda.empty_cache()
 
@@ -97,7 +90,6 @@ class Alignment(nn.Module):
 
     def align_images(self, im_name1, im_name2, name_to_embed, **kwargs):
         device = self.opts.device
-
         img1_in = name_to_embed[im_name1]['image_256'].to(device)
         img2_in = name_to_embed[im_name2]['image_256'].to(device)
         latent_S_1 = name_to_embed[im_name1]["S"].to(device)
@@ -111,12 +103,8 @@ class Alignment(nn.Module):
                     hair_mask_target = self.shape_module(im_name1, im_name2, name_to_embed, only_target=True, **kwargs)['HM_X']
                     return {'latent_F_align': latent_F_1, 'HM_X': hair_mask_target}
 
-                # Call shape_module without only_target
-                (
-                    inp_mask1, hair_mask1,
-                    inp_mask2, hair_mask2,
-                    target_mask, hair_mask_target
-                ) = self.shape_module(im_name1, im_name2, name_to_embed, only_target=False, **kwargs)
+                inp_mask1, hair_mask1, inp_mask2, hair_mask2, target_mask, hair_mask_target = \
+                    self.shape_module(im_name1, im_name2, name_to_embed, only_target=False, **kwargs)
 
                 images = torch.cat([img1_in, img2_in], dim=0)
                 labels = torch.cat([inp_mask1, inp_mask2], dim=0)
@@ -137,7 +125,6 @@ class Alignment(nn.Module):
                     hair_mask2 * hair_mask_target
                 ]
                 masks = torch.cat(masks, dim=0)
-
                 dilate, erosion = self.dilate_erosion.mask(masks)
                 free_mask = torch.stack([dilate[0], erosion[1], erosion[2]], dim=0)
                 free_mask_down_32 = F.interpolate(free_mask.float(), size=(32, 32), mode='bicubic')
@@ -147,7 +134,6 @@ class Alignment(nn.Module):
                 latent_F_align = latent_F_out_new + interpolation_low[1] * (latent_F_align - latent_F_out_new)
                 latent_F_align = latent_F_2 + interpolation_low[2] * (latent_F_align - latent_F_2)
 
-        # Delete big tensors no longer needed
         del img1_in, img2_in, latent_S_1, latent_S_2, latent_F_1, latent_F_2
         torch.cuda.empty_cache()
 
@@ -161,8 +147,7 @@ class Alignment(nn.Module):
                                           start_layer=4, end_layer=8, layer_in=intermediate_align)[0]
             img2_e4e = self.net.generator([latent_out], input_is_latent=True, return_latents=False,
                                           start_layer=4, end_layer=8, layer_in=latent_F_out_new)[0]
-
             save_gen_image(output_dir, 'Align', f'{im_name1}_{im_name2}_e4e.png', img1_e4e)
             save_gen_image(output_dir, 'Align', f'{im_name2}_{im_name1}_e4e.png', img2_e4e)
 
-            gen_im, _ = self.net.generator([latent_S_1], input_is_latent=True, return_latents=False
+        return {'latent_F_align': latent_F_align, 'HM_X': hair_mask_target}
