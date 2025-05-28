@@ -17,42 +17,59 @@ class Blending(nn.Module):
     def __init__(self, opts, net=None):
         super().__init__()
         self.opts = opts
-        self.device = opts.device  # Moved to the top
+        self.device = opts.device
 
-        torch.cuda.empty_cache()
-        gc.collect()
+        # Clear GPU cache and collect garbage to free memory before loading
+        if 'cuda' in str(self.device):
+            torch.cuda.empty_cache()
+            gc.collect()
 
-        # Load Net
+        # Load main generator net to device
         self.net = net if net is not None else Net(self.opts)
 
-        # Load blending encoder on CPU first
+        # Load blending encoder checkpoint on CPU
         blending_checkpoint = torch.load(self.opts.blending_checkpoint, map_location='cpu')
         self.blending_encoder = ClipBlendingModel(blending_checkpoint.get('clip', "ViT-B/32"))
         self.blending_encoder.load_state_dict(blending_checkpoint['model_state_dict'], strict=False)
         self.blending_encoder = self.blending_encoder.to(self.device).eval()
-
-        if torch.cuda.is_available():
+        if 'cuda' in str(self.device):
             self.blending_encoder = self.blending_encoder.half()
 
-        # Post process model
+        # Load post-process model checkpoint on CPU, keep model on CPU for now
         self.post_process = PostProcessModel()
         pp_checkpoint = torch.load(self.opts.pp_checkpoint, map_location='cpu')
         self.post_process.load_state_dict(pp_checkpoint['model_state_dict'])
-        self.post_process = self.post_process.to(self.device).eval()
+        self.post_process.eval()  # keep on CPU initially
 
-        if torch.cuda.is_available():
-            self.post_process = self.post_process.half()
-
+        # Dilate/Erosion and downsampling modules
         self.dilate_erosion = DilateErosion(dilate_erosion=self.opts.smooth, device=self.device)
         self.downsample_256 = BicubicDownSample(factor=4)
 
+    def _move_post_process_to_device(self):
+        """
+        Helper to move post_process model to device on demand.
+        """
+        current_device = next(self.post_process.parameters()).device
+        if current_device != self.device:
+            try:
+                self.post_process = self.post_process.to(self.device)
+                if 'cuda' in str(self.device):
+                    self.post_process = self.post_process.half()
+            except RuntimeError as e:
+                print(f"Warning: Failed to move post_process to {self.device} due to OOM:\n{e}")
+                print("Falling back to CPU for post_process.")
+                self.post_process = self.post_process.to('cpu')
+
     def blend_images(self, align_shape, align_color, name_to_embed, **kwargs):
         with torch.no_grad():
+            # Move post_process model to device just before inference if needed
+            self._move_post_process_to_device()
+
             I_1 = name_to_embed['face']['image_norm_256'].to(self.device)
             I_2 = name_to_embed['shape']['image_norm_256'].to(self.device)
             I_3 = name_to_embed['color']['image_norm_256'].to(self.device)
 
-            if torch.cuda.is_available():
+            if 'cuda' in str(self.device):
                 I_1, I_2, I_3 = I_1.half(), I_2.half(), I_3.half()
 
             mask_de = self.dilate_erosion.hair_from_mask(
@@ -67,7 +84,7 @@ class Blending(nn.Module):
             latent_F_align = align_shape['latent_F_align'].to(self.device)
             HM_X = align_color['HM_X'].to(self.device)
 
-            if torch.cuda.is_available():
+            if 'cuda' in str(self.device):
                 latent_S_1 = latent_S_1.half()
                 latent_S_3 = latent_S_3.half()
                 latent_F_align = latent_F_align.half()
@@ -90,6 +107,7 @@ class Blending(nn.Module):
             )
             I_blend_256 = self.downsample_256(I_blend)
 
+            # Free some memory before post processing
             del I_1, I_2, I_3, target_mask, HM_X, HM_3E
             torch.cuda.empty_cache()
 
