@@ -12,6 +12,18 @@ from utils.image_utils import DilateErosion
 from utils.save_utils import save_vis_mask, save_gen_image, save_latents
 
 
+def safe_to_device(module, device):
+    try:
+        return module.to(device)
+    except RuntimeError as e:
+        if 'out of memory' in str(e).lower():
+            print("[Warning] CUDA out of memory while moving module to device. Trying CPU fallback.")
+            torch.cuda.empty_cache()
+            return module.to('cpu')
+        else:
+            raise e
+
+
 class Alignment(nn.Module):
     def __init__(self, opts, latent_encoder=None, net=None):
         super().__init__()
@@ -20,18 +32,19 @@ class Alignment(nn.Module):
         self.net = net if net else Net(self.opts)
 
         torch.cuda.empty_cache()
-        self.sean_model = Pix2PixModel(SEAN_OPT).to(opts.device)
+        self.sean_model = Pix2PixModel(SEAN_OPT)
+        self.sean_model = safe_to_device(self.sean_model, opts.device)
         self.sean_model.eval()
 
         solver_mask = SolverMask(cfg_mask, device='cpu', local_rank=-1, training=False)
         solver_mask.gen.load_state_dict(torch.load('pretrained_models/ShapeAdaptor/mask_generator.pth', map_location='cpu'))
-        self.mask_generator = solver_mask.gen.to(opts.device)
+        self.mask_generator = safe_to_device(solver_mask.gen, opts.device)
         torch.cuda.empty_cache()
 
         checkpoint = torch.load(self.opts.rotate_checkpoint, map_location='cpu')
         self.rotate_model = RotateModel()
         self.rotate_model.load_state_dict(checkpoint['model_state_dict'])
-        self.rotate_model.to(self.opts.device).eval()
+        self.rotate_model = safe_to_device(self.rotate_model.eval(), self.opts.device)
         torch.cuda.empty_cache()
 
         self.dilate_erosion = DilateErosion(dilate_erosion=self.opts.smooth, device=self.opts.device)
