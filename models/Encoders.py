@@ -1,5 +1,4 @@
 import argparse
-
 import clip
 import torch
 import torch.nn as nn
@@ -35,17 +34,14 @@ class ModulationModule(nn.Module):
 class FeatureiResnet(nn.Module):
     def __init__(self, blocks, inplanes=1024):
         super().__init__()
-
         self.res_blocks = {}
 
         for n, block in enumerate(blocks, start=1):
             planes, num_blocks = block
-
             for k in range(1, num_blocks + 1):
                 downsample = None
                 if inplanes != planes:
-                    downsample = nn.Sequential(conv1x1(inplanes, planes, 1), nn.BatchNorm2d(planes, eps=1e-05, ), )
-
+                    downsample = nn.Sequential(conv1x1(inplanes, planes, 1), nn.BatchNorm2d(planes, eps=1e-05))
                 self.res_blocks[f'res_block_{n}_{k}'] = IBasicBlock(inplanes, planes, 1, downsample, 1, 64, 1)
                 inplanes = planes
 
@@ -67,29 +63,35 @@ class RotateModel(nn.Module):
         dt_latent = self.pixelnorm(latent_from)
         for modulation_module in self.modulation_module_list:
             dt_latent = modulation_module(dt_latent, latent_to)
-        output = latent_from + 0.1 * dt_latent
-        return output
+        return latent_from + 0.1 * dt_latent
 
 
 class ClipBlendingModel(nn.Module):
     def __init__(self, clip_model="ViT-B/32"):
         super().__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.pixelnorm = PixelNorm()
-        self.clip_model, _ = clip.load(clip_model, device="cuda")
-        self.transform = T.Compose(
-            [T.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711))])
-        self.face_pool = torch.nn.AdaptiveAvgPool2d((224, 224))
-        self.modulation_module_list = nn.ModuleList(
-            [ModulationModule(12, i == 4, inp=512 * 3, middle=1024) for i in range(5)]
-        )
+
+        self.clip_model, _ = clip.load(clip_model, device=self.device)
+        self.clip_model.half()
+
+        self.transform = T.Compose([
+            T.Normalize((0.48145466, 0.4578275, 0.40821073),
+                        (0.26862954, 0.26130258, 0.27577711))
+        ])
+        self.face_pool = nn.AdaptiveAvgPool2d((224, 224))
+        self.modulation_module_list = nn.ModuleList([
+            ModulationModule(12, i == 4, inp=512 * 3, middle=1024) for i in range(5)
+        ])
 
         for param in self.clip_model.parameters():
             param.requires_grad = False
 
     def get_image_embed(self, image_tensor):
-        resized_tensor = self.face_pool(image_tensor)
-        renormed_tensor = self.transform(resized_tensor * 0.5 + 0.5)
-        return self.clip_model.encode_image(renormed_tensor)
+        with torch.no_grad():
+            x = self.face_pool(image_tensor)
+            x = self.transform((x * 0.5 + 0.5).float()).half()
+            return self.clip_model.encode_image(x)
 
     def forward(self, latent_face, latent_color, target_face, hair_color):
         embed_face = self.get_image_embed(target_face).unsqueeze(1).expand(-1, 12, -1)
@@ -99,17 +101,19 @@ class ClipBlendingModel(nn.Module):
         dt_latent = self.pixelnorm(latent_face)
         for modulation_module in self.modulation_module_list:
             dt_latent = modulation_module(dt_latent, latent_in)
-        output = latent_face + 0.1 * dt_latent
-        return output
+
+        return latent_face + 0.1 * dt_latent
 
 
 class PostProcessModel(nn.Module):
     def __init__(self):
         super().__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         self.encoder_face = FeatureEncoderMult(fs_layers=[9], opts=argparse.Namespace(
             **{'arcface_model_path': "pretrained_models/ArcFace/backbone_ir50.pth"}))
 
-        self.latent_avg = torch.load('pretrained_models/PostProcess/latent_avg.pt', map_location=torch.device('cuda'))
+        self.latent_avg = torch.load('pretrained_models/PostProcess/latent_avg.pt', map_location=self.device)
         self.to_feature = FeatureiResnet([[1024, 2], [768, 2], [512, 2]])
 
         self.to_latent_1 = nn.ModuleList([ModulationModule(18, i == 4) for i in range(5)])
@@ -125,36 +129,39 @@ class PostProcessModel(nn.Module):
 
         for mod_module in self.to_latent_1:
             dt_latent_face = mod_module(dt_latent_face, s_hair)
-
         for mod_module in self.to_latent_2:
             dt_latent_hair = mod_module(dt_latent_hair, s_face)
 
-        finall_s = self.latent_avg + 0.1 * (dt_latent_face + dt_latent_hair)
+        final_s = self.latent_avg + 0.1 * (dt_latent_face + dt_latent_hair)
 
         cat_f = torch.cat((f_face, f_hair), dim=1)
-        finall_f = self.to_feature(cat_f)
+        final_f = self.to_feature(cat_f)
 
-        return finall_s, finall_f
+        return final_s, final_f
 
 
 class ClipModel(nn.Module):
     def __init__(self):
         super().__init__()
-        self.clip_model, _ = clip.load("ViT-B/32", device="cuda")
-        self.transform = T.Compose(
-            [T.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711))]
-        )
-        self.face_pool = torch.nn.AdaptiveAvgPool2d((224, 224))
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.clip_model, _ = clip.load("ViT-B/32", device=self.device)
+        self.clip_model.half()
+
+        self.transform = T.Compose([
+            T.Normalize((0.48145466, 0.4578275, 0.40821073),
+                        (0.26862954, 0.26130258, 0.27577711))
+        ])
+        self.face_pool = nn.AdaptiveAvgPool2d((224, 224))
 
         for param in self.clip_model.parameters():
             param.requires_grad = False
 
     def forward(self, image_tensor):
-        if not image_tensor.is_cuda:
-            image_tensor = image_tensor.to("cuda")
         if image_tensor.dtype == torch.uint8:
-            image_tensor = image_tensor / 255
+            image_tensor = image_tensor / 255.0
 
-        resized_tensor = self.face_pool(image_tensor)
-        renormed_tensor = self.transform(resized_tensor)
-        return self.clip_model.encode_image(renormed_tensor)
+        image_tensor = image_tensor.to(self.device)
+        with torch.no_grad():
+            x = self.face_pool(image_tensor)
+            x = self.transform(x.float()).half()
+            return self.clip_model.encode_image(x)
