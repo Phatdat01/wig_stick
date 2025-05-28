@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import gc
 
 from models.Encoders import ClipBlendingModel, PostProcessModel
 from models.Net import Net
@@ -21,13 +22,22 @@ class Blending(nn.Module):
         else:
             self.net = net
 
-        blending_checkpoint = torch.load(self.opts.blending_checkpoint)
+        # Clear cache & collect garbage before loading models
+        torch.cuda.empty_cache()
+        gc.collect()
+
+        # Load blending checkpoint safely on CPU first
+        blending_checkpoint = torch.load(self.opts.blending_checkpoint, map_location='cpu')
+
         self.blending_encoder = ClipBlendingModel(blending_checkpoint.get('clip', "ViT-B/32"))
         self.blending_encoder.load_state_dict(blending_checkpoint['model_state_dict'], strict=False)
         self.blending_encoder.to(self.opts.device).eval()
 
-        self.post_process = PostProcessModel().to(self.opts.device).eval()
-        self.post_process.load_state_dict(torch.load(self.opts.pp_checkpoint)['model_state_dict'])
+        # Load post process model checkpoint safely on CPU
+        self.post_process = PostProcessModel()
+        pp_checkpoint = torch.load(self.opts.pp_checkpoint, map_location='cpu')
+        self.post_process.load_state_dict(pp_checkpoint['model_state_dict'])
+        self.post_process.to(self.opts.device).eval()
 
         self.dilate_erosion = DilateErosion(dilate_erosion=self.opts.smooth, device=self.opts.device)
         self.downsample_256 = BicubicDownSample(factor=4)
@@ -66,10 +76,10 @@ class Blending(nn.Module):
         # Post Process
         S_final, F_final = self.post_process(I_1, I_blend_256)
         I_final, _ = self.net.generator([S_final], input_is_latent=True, return_latents=False,
-                                         start_layer=5, end_layer=8, layer_in=F_final)
+                                        start_layer=5, end_layer=8, layer_in=F_final)
 
         if self.opts.save_all:
-            exp_name = exp_name if (exp_name := kwargs.get('exp_name')) is not None else ""
+            exp_name = kwargs.get('exp_name', "")
             output_dir = self.opts.save_all_dir / exp_name
             save_gen_image(output_dir, 'Blending', 'blending.png', I_blend)
             save_latents(output_dir, 'Blending', 'blending.npz', S_blend=S_blend)
@@ -77,5 +87,5 @@ class Blending(nn.Module):
             save_gen_image(output_dir, 'Final', 'final.png', I_final)
             save_latents(output_dir, 'Final', 'final.npz', S_final=S_final, F_final=F_final)
 
-        final_image = ((I_final[0] + 1) / 2).clip(0, 1)
+        final_image = ((I_final[0] + 1) / 2).clamp(0, 1)
         return final_image
