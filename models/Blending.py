@@ -17,7 +17,7 @@ class Blending(nn.Module):
     def __init__(self, opts, net=None):
         super().__init__()
         self.opts = opts
-        self.device = opts.device
+        self.device = opts.device  # Moved to the top
 
         torch.cuda.empty_cache()
         gc.collect()
@@ -31,7 +31,6 @@ class Blending(nn.Module):
         self.blending_encoder.load_state_dict(blending_checkpoint['model_state_dict'], strict=False)
         self.blending_encoder = self.blending_encoder.to(self.device).eval()
 
-        # Optionally use half-precision
         if torch.cuda.is_available():
             self.blending_encoder = self.blending_encoder.half()
 
@@ -40,6 +39,7 @@ class Blending(nn.Module):
         pp_checkpoint = torch.load(self.opts.pp_checkpoint, map_location='cpu')
         self.post_process.load_state_dict(pp_checkpoint['model_state_dict'])
         self.post_process = self.post_process.to(self.device).eval()
+
         if torch.cuda.is_available():
             self.post_process = self.post_process.half()
 
@@ -48,7 +48,6 @@ class Blending(nn.Module):
 
     def blend_images(self, align_shape, align_color, name_to_embed, **kwargs):
         with torch.no_grad():
-            # Move only what is needed to device, optionally use half
             I_1 = name_to_embed['face']['image_norm_256'].to(self.device)
             I_2 = name_to_embed['shape']['image_norm_256'].to(self.device)
             I_3 = name_to_embed['color']['image_norm_256'].to(self.device)
@@ -85,18 +84,21 @@ class Blending(nn.Module):
             else:
                 S_blend = latent_S_1
 
-            I_blend, _ = self.net.generator([S_blend], input_is_latent=True, return_latents=False,
-                                            start_layer=4, end_layer=8, layer_in=latent_F_align)
+            I_blend, _ = self.net.generator(
+                [S_blend], input_is_latent=True, return_latents=False,
+                start_layer=4, end_layer=8, layer_in=latent_F_align
+            )
             I_blend_256 = self.downsample_256(I_blend)
 
-            # Free intermediate GPU memory
             del I_1, I_2, I_3, target_mask, HM_X, HM_3E
             torch.cuda.empty_cache()
 
             # Post Process
             S_final, F_final = self.post_process(S_blend, I_blend_256)
-            I_final, _ = self.net.generator([S_final], input_is_latent=True, return_latents=False,
-                                            start_layer=5, end_layer=8, layer_in=F_final)
+            I_final, _ = self.net.generator(
+                [S_final], input_is_latent=True, return_latents=False,
+                start_layer=5, end_layer=8, layer_in=F_final
+            )
 
             if self.opts.save_all:
                 exp_name = kwargs.get('exp_name', "")
