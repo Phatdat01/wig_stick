@@ -4,6 +4,7 @@ import sys
 import torch
 import yaml
 from PIL import Image
+import gc
 
 current_dir = os.path.abspath(os.path.dirname(__file__))
 sys.path.insert(0, current_dir)
@@ -36,26 +37,41 @@ opts = Namespace(
 config = yaml.load(open(os.path.join(current_dir, 'configs', f'{opts.config}.yaml'), 'r'), Loader=yaml.FullLoader)
 
 def get_trainer(device='cuda'):
-    opts.device = device
+    try:
+        # Use CPU if CUDA is not available
+        if device == 'cuda' and not torch.cuda.is_available():
+            print("CUDA not available. Switching to CPU.")
+            device = 'cpu'
 
-    # Initialize trainer and load models
-    trainer = Trainer(config, opts)
-    trainer.initialize(
-        opts.stylegan_model_path,
-        opts.arcface_model_path,
-        opts.parsing_model_path
-    )
-    trainer.to(device)
+        opts.device = device
 
-    # Load encoder weights safely
-    print(f"Loading encoder weights from {opts.pretrained_model_path}")
-    state_dict = torch.load(opts.pretrained_model_path, map_location=device)
+        # Clean memory
+        gc.collect()
+        if device == 'cuda':
+            torch.cuda.empty_cache()
 
-    # Filter out unexpected keys (e.g., 'styles.*')
-    encoder_state_dict = {
-        k: v for k, v in state_dict.items() if k in trainer.enc.state_dict()
-    }
-    trainer.enc.load_state_dict(encoder_state_dict, strict=False)
-    trainer.enc.eval()
+        # Initialize trainer
+        trainer = Trainer(config, opts)
+        trainer.initialize(
+            opts.stylegan_model_path,
+            opts.arcface_model_path,
+            opts.parsing_model_path
+        )
+        trainer.to(device)
 
-    return trainer
+        # Load encoder weights
+        print(f"Loading encoder weights from {opts.pretrained_model_path}")
+        state_dict = torch.load(opts.pretrained_model_path, map_location=device)
+
+        # Filter out keys not in the encoder
+        encoder_state_dict = {
+            k: v for k, v in state_dict.items() if k in trainer.enc.state_dict()
+        }
+        trainer.enc.load_state_dict(encoder_state_dict, strict=False)
+        trainer.enc.eval()
+
+        return trainer
+
+    except torch.cuda.OutOfMemoryError:
+        print("CUDA out of memory. Switching to CPU.")
+        return get_trainer(device='cpu')
