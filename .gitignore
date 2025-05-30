@@ -162,3 +162,4 @@ input
 pretrained_models
 
 .cuda
+temp_wig
