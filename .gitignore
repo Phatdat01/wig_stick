@@ -161,3 +161,4 @@ test_coef/*.png
 input
 pretrained_models
 **/wig
+**/temp_wig
