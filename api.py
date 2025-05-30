@@ -167,16 +167,21 @@ def get_wig_list():
     files = [dict(id=os.path.splitext(f)[0], url=f"{domain}/{wig_dir}/{f}") for f in os.listdir(wig_dir) if f.lower().endswith(('.png'))]
     return files
 
-@app.route('/test_image')
+@app.route('/test_image', methods=['POST'])
 def test_image():
-    from PIL import Image
-    import io
+    face_file = request.files['face']
+    choose_file = request.form.get('shape', '1')
+    shape_image = Image.open(f"static/wig/{choose_file}.png")
+    face_image = Image.open(io.BytesIO(face_file.read()))
+    target_size = (1024, 1024)
+    face_image = resize_image(ensure_rgb(face_image), target_size)
+    shape_image = resize_image(ensure_rgb(shape_image), target_size)
+    final_pil_image = face_image  # Just return wig
 
-    img = Image.new("RGB", (100, 100), color="red")
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
-    buf.seek(0)
-    return Response(buf, mimetype='image/png')
+    img_byte_arr = io.BytesIO()
+    final_pil_image.save(img_byte_arr, format='PNG')
+    img_byte_arr.seek(0)
+    return Response(img_byte_arr, mimetype='image/png')
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)
