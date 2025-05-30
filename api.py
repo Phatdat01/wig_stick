@@ -165,7 +165,18 @@ def get_wig_list():
     wig_dir = 'static/wig'
     domain = request.host_url.rstrip('/')
     files = [dict(id=os.path.splitext(f)[0], url=f"{domain}/{wig_dir}/{f}") for f in os.listdir(wig_dir) if f.lower().endswith(('.png'))]
-    return files    
+    return files
+
+@app.route('/test_image')
+def test_image():
+    from PIL import Image
+    import io
+
+    img = Image.new("RGB", (100, 100), color="red")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return Response(buf, mimetype='image/png')
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)
