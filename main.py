@@ -73,7 +73,7 @@ def main(model_args, args):
         #     benchmark=args.benchmark,
         #     exp_name=exp_name
         # )
-        final_image,_,_,_ = hair_fast.swap(face_image, shape_image, color_image, align=True)
+        final_image = hair_fast.swap(face_image, shape_image, color_image, align=True)
 
         save_image(final_image, output_image_path)
 
