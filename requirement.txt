@@ -7,7 +7,7 @@ requests
 gdown
 opencv-python
 dill
-PyYAML
+PyYAML  
 face-alignment
 matplotlib
 pillow==11.2.1
